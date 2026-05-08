@@ -15,6 +15,8 @@ try:
 except ImportError:  # pragma: no cover
     SmartConnect = None
 
+CANDLE_LOOKBACK_DAYS = 15
+
 
 @dataclass
 class Candle:
@@ -48,7 +50,7 @@ class AngelOneDataClient:
             return []
 
         to_dt = datetime.now()
-        from_dt = to_dt - timedelta(days=15)
+        from_dt = to_dt - timedelta(days=CANDLE_LOOKBACK_DAYS)
         payload = {
             "exchange": "NSE",
             "symboltoken": symbol,
