@@ -6,6 +6,9 @@ from urllib import request
 
 from swing_scanner.analysis import SetupSignal
 
+MIN_RISK_PCT = 0.015
+TARGET_R_MULTIPLE = 1.8
+
 
 @dataclass
 class TradeIdea:
@@ -61,8 +64,8 @@ class GeminiIdeaGenerator:
     @staticmethod
     def _fallback(signal: SetupSignal, news_summary: str) -> TradeIdea:
         entry = signal.close
-        risk = max(signal.close - signal.bb_lower, signal.close * 0.015)
-        target = signal.close + (risk * 1.8)
+        risk = max(signal.close - signal.bb_lower, signal.close * MIN_RISK_PCT)
+        target = signal.close + (risk * TARGET_R_MULTIPLE)
         stop = signal.close - risk
         return TradeIdea(
             symbol=signal.symbol,

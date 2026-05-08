@@ -45,11 +45,12 @@ def analyze_symbol(symbol: str, candles: list[Candle]) -> SetupSignal | None:
     frame["avg_volume"] = frame["volume"].rolling(20).mean()
 
     last = frame.iloc[-1]
+    avg_volume = float(last["avg_volume"]) if pd.notna(last["avg_volume"]) else 0.0
     is_candidate = bool(
         40 <= last["rsi"] <= 65
         and last["macd"] > 0
         and last["close"] > last["ema_20"]
-        and last["volume"] >= (last["avg_volume"] or 0)
+        and last["volume"] >= avg_volume
         and last["close"] < last["bb_upper"]
     )
 
