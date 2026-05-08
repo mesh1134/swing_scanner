@@ -17,9 +17,10 @@ class _FakeJobBuilder:
         self.value = value
         return self
 
-    def do(self, _func):
+    def do(self, job_func):
         entry = (self.weekday, self.value)
         self.registry.append(entry)
+        self.job_func = job_func
         return entry
 
 

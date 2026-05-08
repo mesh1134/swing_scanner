@@ -32,6 +32,7 @@ class AngelOneDataClient:
         self.client_code = client_code
         self.mpin = mpin
         self.totp_secret = totp_secret
+        self._totp = pyotp.TOTP(self.totp_secret) if pyotp and self.totp_secret else None
         self._smart_api = SmartConnect(api_key=self.api_key) if SmartConnect else None
 
     def fetch_candles(self, symbol: str, interval: str = "FIFTEEN_MINUTE") -> list[Candle]:
@@ -79,7 +80,7 @@ class AngelOneDataClient:
         return candles
 
     def _login(self) -> str:
-        if pyotp is None:
+        if pyotp is None or self._totp is None:
             return ""
         smart = self._get_client()
         if smart is None:
@@ -88,7 +89,7 @@ class AngelOneDataClient:
             session = smart.generateSession(
                 self.client_code,
                 self.mpin,
-                pyotp.TOTP(self.totp_secret).now(),
+                self._totp.now(),
             )
         except Exception:
             return ""
