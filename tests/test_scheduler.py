@@ -1,19 +1,61 @@
 import unittest
 from datetime import datetime
 
-from swing_scanner.scheduler import is_market_hours, seconds_to_next_quarter
+from swing_scanner.scheduler import (
+    is_scheduled_scan_time,
+    register_weekday_scan_jobs,
+    seconds_to_next_scan,
+)
+
+
+class _FakeJobBuilder:
+    def __init__(self, registry, weekday):
+        self.registry = registry
+        self.weekday = weekday
+
+    def at(self, value):
+        self.value = value
+        return self
+
+    def do(self, _func):
+        entry = (self.weekday, self.value)
+        self.registry.append(entry)
+        return entry
+
+
+class _FakeEvery:
+    def __init__(self, registry):
+        self.registry = registry
+
+    def __getattr__(self, weekday):
+        return _FakeJobBuilder(self.registry, weekday)
+
+
+class _FakeSchedule:
+    def __init__(self):
+        self.registry = []
+
+    def every(self):
+        return _FakeEvery(self.registry)
 
 
 class SchedulerTests(unittest.TestCase):
-    def test_market_hours_weekday(self):
-        self.assertTrue(is_market_hours(datetime(2026, 5, 8, 10, 0, 0)))
+    def test_scheduled_scan_time_match(self):
+        self.assertTrue(is_scheduled_scan_time(datetime(2026, 5, 8, 9, 20, 0)))
 
-    def test_market_hours_weekend(self):
-        self.assertFalse(is_market_hours(datetime(2026, 5, 9, 10, 0, 0)))
+    def test_scheduled_scan_time_weekend(self):
+        self.assertFalse(is_scheduled_scan_time(datetime(2026, 5, 9, 9, 20, 0)))
 
-    def test_seconds_to_next_quarter(self):
+    def test_seconds_to_next_scan(self):
         now = datetime(2026, 5, 8, 10, 7, 30)
-        self.assertEqual(seconds_to_next_quarter(now), 450)
+        self.assertEqual(seconds_to_next_scan(now), 7650)
+
+    def test_register_weekday_jobs(self):
+        fake_schedule = _FakeSchedule()
+        jobs = register_weekday_scan_jobs(fake_schedule, lambda: None)
+        self.assertEqual(len(jobs), 15)
+        self.assertIn(("monday", "09:20"), fake_schedule.registry)
+        self.assertIn(("friday", "15:00"), fake_schedule.registry)
 
 
 if __name__ == "__main__":

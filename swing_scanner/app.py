@@ -9,14 +9,15 @@ from swing_scanner.analysis import analyze_symbol
 from swing_scanner.config import Settings
 from swing_scanner.data_layer import AngelOneDataClient, PerplexityNewsClient
 from swing_scanner.delivery import TelegramNotifier, format_trade_idea
-from swing_scanner.scheduler import is_market_hours, seconds_to_next_quarter
+from swing_scanner.scheduler import register_weekday_scan_jobs
 
 
 def run_scan(symbols: list[str], settings: Settings) -> list[str]:
     data_client = AngelOneDataClient(
         api_key=settings.angel_one_api_key,
         client_code=settings.angel_one_client_code,
-        access_token=settings.angel_one_access_token,
+        mpin=settings.angel_one_mpin,
+        totp_secret=settings.angel_one_totp_secret,
     )
     news_client = PerplexityNewsClient(api_key=settings.perplexity_api_key)
     idea_generator = GeminiIdeaGenerator(api_key=settings.gemini_api_key)
@@ -51,17 +52,21 @@ def main() -> None:
     symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
     settings = Settings()
 
-    while True:
+    def scheduled_job() -> None:
         now = datetime.now()
-        if is_market_hours(now):
-            alerts = run_scan(symbols, settings)
-            print(f"[{now.isoformat()}] Scan complete. Alerts: {len(alerts)}")
-        else:
-            print(f"[{now.isoformat()}] Outside market hours. Waiting.")
+        alerts = run_scan(symbols, settings)
+        print(f"[{now.isoformat()}] Fixed-time scan complete. Alerts: {len(alerts)}")
 
-        if args.run_once:
-            return
-        time.sleep(seconds_to_next_quarter(datetime.now()))
+    if args.run_once:
+        scheduled_job()
+        return
+
+    import schedule
+
+    register_weekday_scan_jobs(schedule, scheduled_job)
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 
 if __name__ == "__main__":

@@ -1,21 +1,47 @@
 from datetime import datetime, timedelta, time
 
+SCAN_TIMES = (time(9, 20), time(12, 15), time(15, 0))
+SCAN_TIME_STRINGS = ("09:20", "12:15", "15:00")
 
-MARKET_OPEN = time(9, 15)
-MARKET_CLOSE = time(15, 30)
 
-
-def is_market_hours(now: datetime) -> bool:
+def is_weekday(now: datetime) -> bool:
     if now.weekday() > 4:
         return False
-    return MARKET_OPEN <= now.time() <= MARKET_CLOSE
+    return True
 
 
-def seconds_to_next_quarter(now: datetime) -> int:
-    next_mark = ((now.minute // 15) + 1) * 15
-    if next_mark >= 60:
-        target = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-    else:
-        target = now.replace(minute=next_mark, second=0, microsecond=0)
+def is_scheduled_scan_time(now: datetime) -> bool:
+    current = now.replace(second=0, microsecond=0).time()
+    return is_weekday(now) and current in SCAN_TIMES
+
+
+def seconds_to_next_scan(now: datetime) -> int:
+    target: datetime | None = None
+    baseline = now.replace(second=0, microsecond=0)
+    for day_offset in range(0, 8):
+        candidate_day = baseline + timedelta(days=day_offset)
+        if candidate_day.weekday() > 4:
+            continue
+        for scan_time in SCAN_TIMES:
+            candidate = candidate_day.replace(
+                hour=scan_time.hour,
+                minute=scan_time.minute,
+                second=0,
+                microsecond=0,
+            )
+            if candidate > now and (target is None or candidate < target):
+                target = candidate
+    if target is None:
+        target = baseline + timedelta(days=1)
     wait = int((target - now).total_seconds())
     return max(wait, 1)
+
+
+def register_weekday_scan_jobs(schedule_module, job_func):
+    jobs = []
+    weekdays = ("monday", "tuesday", "wednesday", "thursday", "friday")
+    for weekday in weekdays:
+        weekday_scheduler = getattr(schedule_module.every(), weekday)
+        for scan_time in SCAN_TIME_STRINGS:
+            jobs.append(weekday_scheduler.at(scan_time).do(job_func))
+    return jobs
