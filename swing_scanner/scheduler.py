@@ -8,9 +8,7 @@ MAX_LOOKAHEAD_DAYS = 8
 
 
 def is_weekday(now: datetime) -> bool:
-    if now.weekday() > 4:
-        return False
-    return True
+    return now.weekday() <= 4
 
 
 def is_scheduled_scan_time(now: datetime) -> bool:
@@ -35,7 +33,10 @@ def seconds_to_next_scan(now: datetime) -> int:
             if candidate > now and (target is None or candidate < target):
                 target = candidate
     if target is None:
-        target = baseline + timedelta(days=1)
+        fallback_day = baseline + timedelta(days=1)
+        while fallback_day.weekday() > 4:
+            fallback_day += timedelta(days=1)
+        target = fallback_day.replace(hour=SCAN_TIMES[0].hour, minute=SCAN_TIMES[0].minute)
     wait = int((target - now).total_seconds())
     return max(wait, 1)
 

@@ -32,7 +32,9 @@ class AngelOneDataClient:
         self.client_code = client_code
         self.mpin = mpin
         self.totp_secret = totp_secret
-        self._totp = pyotp.TOTP(self.totp_secret) if pyotp and self.totp_secret else None
+        self._totp = None
+        if pyotp is not None and self.totp_secret:
+            self._totp = pyotp.TOTP(self.totp_secret)
         self._smart_api = SmartConnect(api_key=self.api_key) if SmartConnect else None
 
     def fetch_candles(self, symbol: str, interval: str = "FIFTEEN_MINUTE") -> list[Candle]:

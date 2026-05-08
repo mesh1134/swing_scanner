@@ -28,8 +28,8 @@ class _FakeEvery:
     def __init__(self, registry):
         self.registry = registry
 
-    def __getattr__(self, weekday):
-        return _FakeJobBuilder(self.registry, weekday)
+    def __getattr__(self, attr_name):
+        return _FakeJobBuilder(self.registry, attr_name)
 
 
 class _FakeSchedule:
