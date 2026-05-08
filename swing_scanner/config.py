@@ -5,7 +5,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Settings:
     angel_one_api_key: str = os.getenv("ANGEL_ONE_API_KEY", "")
-    angel_one_client_code: str = os.getenv("ANGEL_ONE_CLIENT_CODE", "")
+    angel_one_client_id: str = os.getenv("ANGEL_ONE_CLIENT_ID", "")
     angel_one_mpin: str = os.getenv("ANGEL_ONE_MPIN", "")
     angel_one_totp_secret: str = os.getenv("ANGEL_ONE_TOTP_SECRET", "")
     perplexity_api_key: str = os.getenv("PERPLEXITY_API_KEY", "")

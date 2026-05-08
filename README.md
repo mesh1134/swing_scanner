@@ -24,16 +24,32 @@ pip install -r requirements.txt
 python -m swing_scanner.app --symbols RELIANCE,INFY,TCS --run-once
 ```
 
+## Doppler usage
+
+```bash
+doppler run -- python -m swing_scanner.app --symbols RELIANCE,INFY,TCS
+```
+
 ## Environment variables
 
 - `ANGEL_ONE_API_KEY`
-- `ANGEL_ONE_CLIENT_CODE`
+- `ANGEL_ONE_CLIENT_ID`
 - `ANGEL_ONE_MPIN`
 - `ANGEL_ONE_TOTP_SECRET`
 - `PERPLEXITY_API_KEY`
 - `GEMINI_API_KEY`
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
+
+## Startup commands
+
+```bash
+# One scan cycle now
+python -m swing_scanner.app --symbols RELIANCE,INFY,TCS --run-once
+
+# Continuous weekday schedule (09:20, 12:15, 15:00 IST)
+python -m swing_scanner.app --symbols RELIANCE,INFY,TCS
+```
 
 ## Notes
 

@@ -15,7 +15,7 @@ from swing_scanner.scheduler import register_weekday_scan_jobs
 def run_scan(symbols: list[str], settings: Settings) -> list[str]:
     data_client = AngelOneDataClient(
         api_key=settings.angel_one_api_key,
-        client_code=settings.angel_one_client_code,
+        client_id=settings.angel_one_client_id,
         mpin=settings.angel_one_mpin,
         totp_secret=settings.angel_one_totp_secret,
     )
@@ -54,8 +54,11 @@ def main() -> None:
 
     def scheduled_job() -> None:
         now = datetime.now()
-        alerts = run_scan(symbols, settings)
-        print(f"[{now.isoformat()}] Fixed-time scan complete. Alerts: {len(alerts)}")
+        try:
+            alerts = run_scan(symbols, settings)
+            print(f"[{now.isoformat()}] Fixed-time scan complete. Alerts: {len(alerts)}")
+        except Exception as exc:
+            print(f"[{now.isoformat()}] Scan skipped due to recoverable error: {exc}")
 
     if args.run_once:
         scheduled_job()

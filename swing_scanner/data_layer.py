@@ -30,9 +30,9 @@ class Candle:
 
 
 class AngelOneDataClient:
-    def __init__(self, api_key: str, client_code: str, mpin: str, totp_secret: str):
+    def __init__(self, api_key: str, client_id: str, mpin: str, totp_secret: str):
         self.api_key = api_key
-        self.client_code = client_code
+        self.client_id = client_id
         self.mpin = mpin
         self.totp_secret = totp_secret
         self._totp = None
@@ -41,13 +41,16 @@ class AngelOneDataClient:
         self._smart_api = SmartConnect(api_key=self.api_key) if SmartConnect else None
 
     def fetch_candles(self, symbol: str, interval: str = "FIFTEEN_MINUTE") -> list[Candle]:
-        if not (self.api_key and self.client_code and self.mpin and self.totp_secret):
+        if not (self.api_key and self.client_id and self.mpin and self.totp_secret):
+            print("Angel One scan skipped: missing API key/client ID/MPIN/TOTP secret.")
             return []
         if SmartConnect is None:
+            print("Angel One scan skipped: smartapi-python is not installed.")
             return []
 
         auth_token = self._login()
         if not auth_token:
+            print("Angel One scan skipped: login failed (check client ID, MPIN, and TOTP secret).")
             return []
 
         to_dt = datetime.now()
@@ -90,11 +93,12 @@ class AngelOneDataClient:
             return ""
         try:
             session = smart.generateSession(
-                self.client_code,
+                self.client_id,
                 self.mpin,
                 self._totp.now(),
             )
-        except Exception:
+        except Exception as exc:
+            print(f"Angel One login error: {exc}")
             return ""
         data = session.get("data", {})
         return data.get("jwtToken", "")
