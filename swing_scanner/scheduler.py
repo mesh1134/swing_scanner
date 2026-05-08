@@ -36,7 +36,12 @@ def seconds_to_next_scan(now: datetime) -> int:
         fallback_day = baseline + timedelta(days=1)
         while fallback_day.weekday() > 4:
             fallback_day += timedelta(days=1)
-        target = fallback_day.replace(hour=SCAN_TIMES[0].hour, minute=SCAN_TIMES[0].minute)
+        target = fallback_day.replace(
+            hour=SCAN_TIMES[0].hour,
+            minute=SCAN_TIMES[0].minute,
+            second=0,
+            microsecond=0,
+        )
     wait = int((target - now).total_seconds())
     return max(wait, 1)
 

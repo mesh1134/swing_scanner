@@ -97,7 +97,7 @@ class AngelOneDataClient:
         except Exception:
             return ""
         data = session.get("data", {})
-        return str(data.get("jwtToken", ""))
+        return data.get("jwtToken", "")
 
     def _get_client(self):
         return self._smart_api
