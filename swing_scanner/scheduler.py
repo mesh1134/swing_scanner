@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, time
 
 SCAN_TIMES = (time(9, 20), time(12, 15), time(15, 0))
 SCAN_TIME_STRINGS = ("09:20", "12:15", "15:00")
+MAX_LOOKAHEAD_DAYS = 8
 
 
 def is_weekday(now: datetime) -> bool:
@@ -18,7 +19,7 @@ def is_scheduled_scan_time(now: datetime) -> bool:
 def seconds_to_next_scan(now: datetime) -> int:
     target: datetime | None = None
     baseline = now.replace(second=0, microsecond=0)
-    for day_offset in range(0, 8):
+    for day_offset in range(0, MAX_LOOKAHEAD_DAYS):
         candidate_day = baseline + timedelta(days=day_offset)
         if candidate_day.weekday() > 4:
             continue

@@ -32,6 +32,7 @@ class AngelOneDataClient:
         self.client_code = client_code
         self.mpin = mpin
         self.totp_secret = totp_secret
+        self._smart_api = SmartConnect(api_key=self.api_key) if SmartConnect else None
 
     def fetch_candles(self, symbol: str, interval: str = "FIFTEEN_MINUTE") -> list[Candle]:
         if not (self.api_key and self.client_code and self.mpin and self.totp_secret):
@@ -52,8 +53,10 @@ class AngelOneDataClient:
             "fromdate": from_dt.strftime("%Y-%m-%d %H:%M"),
             "todate": to_dt.strftime("%Y-%m-%d %H:%M"),
         }
+        smart = self._get_client()
+        if smart is None:
+            return []
         try:
-            smart = SmartConnect(api_key=self.api_key)
             smart.setAccessToken(auth_token)
             data = smart.getCandleData(payload)
         except Exception:
@@ -78,8 +81,10 @@ class AngelOneDataClient:
     def _login(self) -> str:
         if pyotp is None:
             return ""
+        smart = self._get_client()
+        if smart is None:
+            return ""
         try:
-            smart = SmartConnect(api_key=self.api_key)
             session = smart.generateSession(
                 self.client_code,
                 self.mpin,
@@ -89,6 +94,9 @@ class AngelOneDataClient:
             return ""
         data = session.get("data", {})
         return str(data.get("jwtToken", ""))
+
+    def _get_client(self):
+        return self._smart_api
 
 
 class PerplexityNewsClient:
