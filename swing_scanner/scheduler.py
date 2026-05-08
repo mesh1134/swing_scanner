@@ -3,7 +3,7 @@ from typing import Optional
 
 SCAN_TIMES = (time(9, 20), time(12, 15), time(15, 0))
 SCAN_TIME_STRINGS = ("09:20", "12:15", "15:00")
-# 8 days = one full week plus a day buffer to always reach the next weekday slot.
+# 8-day lookahead ensures we can always reach the next weekday slot, even from weekends.
 MAX_LOOKAHEAD_DAYS = 8
 
 

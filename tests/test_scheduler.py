@@ -2,6 +2,7 @@ import unittest
 from datetime import datetime
 
 from swing_scanner.scheduler import (
+    SCAN_TIME_STRINGS,
     is_scheduled_scan_time,
     register_weekday_scan_jobs,
     seconds_to_next_scan,
@@ -54,7 +55,7 @@ class SchedulerTests(unittest.TestCase):
     def test_register_weekday_jobs(self):
         fake_schedule = _FakeSchedule()
         jobs = register_weekday_scan_jobs(fake_schedule, lambda: None)
-        self.assertEqual(len(jobs), 15)
+        self.assertEqual(len(jobs), 5 * len(SCAN_TIME_STRINGS))
         self.assertIn(("monday", "09:20"), fake_schedule.registry)
         self.assertIn(("friday", "15:00"), fake_schedule.registry)
 

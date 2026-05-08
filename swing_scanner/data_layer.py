@@ -15,6 +15,7 @@ try:
 except ImportError:  # pragma: no cover
     SmartConnect = None
 
+# 15 trading days gives enough candles for 14/20-period indicators with recent context.
 CANDLE_LOOKBACK_DAYS = 15
 
 
@@ -59,8 +60,6 @@ class AngelOneDataClient:
             "todate": to_dt.strftime("%Y-%m-%d %H:%M"),
         }
         smart = self._get_client()
-        if smart is None:
-            return []
         try:
             smart.setAccessToken(auth_token)
             data = smart.getCandleData(payload)
