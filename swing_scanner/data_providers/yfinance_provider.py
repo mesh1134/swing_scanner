@@ -11,6 +11,9 @@ No API key is required.
 from __future__ import annotations
 
 from datetime import datetime
+import os
+from pathlib import Path
+import threading
 from typing import Any, Optional
 
 from swing_scanner.data_providers.base import Candle, MarketDataProvider
@@ -45,6 +48,8 @@ _INTERVAL_ALIASES: dict[str, str] = {
 # yfinance restricts intraday history depth; map our daily-lookback hint
 # to a sensible ``period`` when the caller asks for intraday bars.
 _INTRADAY_INTERVALS = {"1m", "5m", "15m", "30m", "60m"}
+_TZ_CACHE_LOCK = threading.Lock()
+_TZ_CACHE_CONFIGURED = False
 
 
 class YFinanceProvider(MarketDataProvider):
@@ -54,6 +59,7 @@ class YFinanceProvider(MarketDataProvider):
         # ``session`` lets tests inject a fake; production passes nothing
         # and yfinance manages its own HTTP client.
         self._session = session
+        _configure_tz_cache_once()
 
     # ------------------------------------------------------------------
     # Public API
@@ -176,3 +182,29 @@ def _format_timestamp(value: Any) -> str:
     except (AttributeError, ValueError, OSError):
         pass
     return str(value)
+
+
+def _configure_tz_cache_once() -> None:
+    """Configure yfinance timezone cache path once per process.
+
+    yfinance's tz-cache initialization can race under concurrent first
+    access and emit noisy "File exists" warnings. We preconfigure and
+    precreate a stable location before any threaded fetch calls.
+    """
+    global _TZ_CACHE_CONFIGURED
+    if yf is None:
+        return
+    with _TZ_CACHE_LOCK:
+        if _TZ_CACHE_CONFIGURED:
+            return
+        try:
+            configured = os.getenv("YF_TZ_CACHE_DIR", "").strip()
+            cache_root = Path(configured) if configured else Path(".cache") / "py-yfinance"
+            cache_root.mkdir(parents=True, exist_ok=True)
+            set_cache_location = getattr(yf, "set_tz_cache_location", None)
+            if callable(set_cache_location):
+                set_cache_location(str(cache_root.resolve()))
+        except Exception as exc:  # pragma: no cover - best effort only
+            print(f"yfinance cache setup warning: {exc}")
+        finally:
+            _TZ_CACHE_CONFIGURED = True
