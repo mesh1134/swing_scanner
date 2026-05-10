@@ -1,0 +1,144 @@
+# Swing Scanner - Project Handoff
+# Hand this file to a fresh chat to resume work without re-deriving context.
+# Last updated: 2026-05-10 (post-persistence-and-scheduling session)
+
+project:
+  name: swing_scanner
+  root: C:\Users\soume\PycharmProjects\swing_scanner
+  os: windows
+  shell: powershell
+  python: "3.11+ (uses dataclasses, type hints, urllib only - no requests lib)"
+  venv: .venv (PowerShell prompt confirms it's active in the user's terminal)
+  purpose: >
+    Daily swing-trade candidate scanner for Indian equities (NSE).
+    Pulls candles -> runs deterministic indicator filter -> on candidate,
+    fetches live grounded news -> calls LLM for structured commentary ->
+    formats, persists to DB, and pushes to Telegram.
+
+owner_preferences:
+  trading_market: NSE only (Indian equities)
+  currency: INR (use rupee symbol in user-facing output)
+  timezone: Asia/Kolkata (UTC+05:30)
+  subscriptions_held:
+    - Perplexity Pro (does NOT include API credits; user did not buy them)
+    - Google AI Pro / Gemini Advanced (consumer; does NOT cover API)
+    - Gemini API: Tier 1 Postpay billing enabled, balance INR 0, no spend yet
+  payment_status: >
+    User attached a card to Google AI Studio billing for Gemini API.
+    Realistic monthly cost on current usage pattern is INR 0 (well under free tier).
+  open_to_paid_features: false (until usage demands it)
+
+architecture:
+  flow: |
+    Watchlist -> MarketDataProvider.fetch_candles
+              -> CachedProvider (in-memory TTL wrapper)
+              -> Strategy.analyze (deterministic filter, returns SetupSignal)
+              -> Persistence.save_signal (record technicals for ALL symbols)
+              -> if is_candidate (or force_analyze_all):
+                    NewsClient.latest_news_summary (grounded news)
+                 -> GeminiTradeAnalyst.analyze (structured commentary)
+                 -> compute_trade_levels (deterministic entry/target/stop)
+                 -> Persistence.save_trade_idea (record AI thesis + levels)
+                 -> format_trade_idea (Telegram-friendly text)
+                 -> TelegramNotifier.send (skipped in force-mode for non-candidates)
+  separation_of_concerns: >
+    Strategy decides WHAT qualifies. LLM only EXPLAINS qualifying setups.
+    Trade levels are 100% deterministic. Persistence records everything for
+    future backtesting.
+  composability: >
+    Provider, Strategy, NewsClient are all factory-resolved from Settings
+    (env vars). DatabaseManager handles SQLite abstraction.
+
+env_vars:
+  required_for_full_run:
+    GEMINI_API_KEY: from Google AI Studio
+    TELEGRAM_BOT_TOKEN: optional (no-op if absent)
+    TELEGRAM_CHAT_ID: optional
+  optional_with_defaults:
+    MARKET_DATA_PROVIDER: yfinance  # also: dhan, finnhub, mock
+    SCAN_STRATEGY: swing
+    GEMINI_MODEL: gemini-2.5-flash
+    NEWS_SOURCE: gemini             # also: perplexity, none
+    SCAN_CACHE_TTL: 600
+    SCAN_DEBUG: 0
+    SCAN_MAX_WORKERS: 8
+    SCAN_DB_PATH: scanner.db        # Path to SQLite database
+
+key_files:
+  - path: swing_scanner/app.py
+    role: CLI entrypoint, parallel scan loop, persistence glue
+    flags: [--watchlist, --symbols, --run-once, --debug, --force-analyze-all]
+  - path: swing_scanner/persistence.py
+    role: DatabaseManager (SQLite); schema for scans, signals, and trade_ideas
+    note: Records indicators for ALL scanned symbols to build backtesting data.
+  - path: swing_scanner/scheduler.py
+    role: NSE-specific timing (09:20, 12:27, 15:15 IST)
+    note: 5m after open, 5m after mathematical mid-market, 15m before close.
+  - path: swing_scanner/config.py
+    role: Settings dataclass; includes scan_db_path
+  - path: swing_scanner/strategies/base.py
+    role: SetupSignal dataclass + Strategy ABC
+  - path: swing_scanner/ai_brain.py
+    role: TradeAnalysis dataclass, compute_trade_levels, GeminiTradeAnalyst
+  - path: swing_scanner/delivery.py
+    role: format_trade_idea + TelegramNotifier
+  - path: swing_scanner/watchlist.py
+    role: parses watchlist file (# comments, blank lines)
+  - path: watchlist.example.txt
+    role: 16 NSE tickers, sector-grouped
+
+current_watchlist_nse:
+  - RELIANCE.NS, INFY.NS, TCS.NS, HDFCBANK.NS, ICICIBANK.NS, SBIN.NS, AXISBANK.NS, 
+    BAJFINANCE.NS, LT.NS, BHARTIARTL.NS, ITC.NS, HINDUNILVR.NS, MARUTI.NS, 
+    SUNPHARMA.NS, ASIANPAINT.NS, ADANIENT.NS
+
+trade_level_math:
+  entry: signal.close
+  stop: max(ema20 * 0.99, bb_lower, entry * 0.96) where < entry, with 2.0% floor
+  target: entry + (entry - stop) * 1.8
+  rationale: Picking tightest valid stop, capped at 4%, floored at 2%.
+
+ai_layer:
+  model: gemini-2.5-flash
+  response_format: strict JSON (thesis, momentum, trend, volume, quality, risks)
+  grounding: Google Search (enabled by default)
+
+session_history:
+  - "2026-05-10 ~16:25: Updated README.md to reflect NSE focus, parallelization, and Gemini integration."
+  - "2026-05-10 ~16:45: Implemented SQLite Persistence (persistence.py). Every scan cycle now records metadata, all technical signals, and AI trade ideas. Integrated into app.py and verified with 4 new tests."
+  - "2026-05-10 ~16:55: Specialized scheduling for NSE hours. Updated times to 09:20 (5m after open), 12:27 (5m after mid-market), and 15:15 (15m before close). Updated scheduler tests to match."
+
+recently_resolved:
+  - SQLite Persistence layer shipped and verified with tests.
+  - NSE-specific scheduling (Opening/Mid/Closing windows) implemented and tested.
+  - Total test count raised to 18; all passing.
+
+possible_next_steps:
+  user_choice_pending: yes
+  candidates:
+    - Tune SwingStrategy thresholds for Indian volatility (now easier with DB data)
+    - Add a FastAPI layer over run_scan + TradeAnalysis.to_dict() for a frontend
+    - Add Dhan provider key-up so user can use their broker as data source
+    - Add a "watchlist tier" concept (A-list vs B-list) with different scan cadence
+    - Add outcome-tracking to persistence (record price 5/10 days later to calc win-rate)
+
+testing:
+  framework: unittest
+  status_at_handoff: 18/18 tests passing
+  command: .\.venv\Scripts\python.exe -m unittest discover -s tests -v
+  test_files:
+    - tests/test_persistence.py (4 tests: schema, lifecycle, persistence, retrieval)
+    - tests/test_scheduler.py (4 tests: updated for new NSE times)
+    - tests/test_trade_idea.py (2 tests)
+    - tests/test_parallel_scan.py (3 tests)
+    - tests/test_polish_fixes.py (5 tests)
+
+dependencies:
+  no_third_party_libs_for_http: uses urllib.request only
+  pandas, yfinance, schedule: standard core stack
+
+how_to_resume_in_new_chat:
+  paste_this_file_first: yes
+  then_say: |
+    "Read PROJECT_HANDOFF.yaml. Persistence and NSE scheduling are both live. 
+    Pick from 'possible_next_steps' or tell me what's next."

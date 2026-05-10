@@ -49,15 +49,16 @@ class SchedulerTests(unittest.TestCase):
         self.assertFalse(is_scheduled_scan_time(datetime(2026, 5, 9, 9, 20, 0)))
 
     def test_seconds_to_next_scan(self):
+        # Friday 10:07:30; next scan is 12:27:00
         now = datetime(2026, 5, 8, 10, 7, 30)
-        self.assertEqual(seconds_to_next_scan(now), 7650)
+        self.assertEqual(seconds_to_next_scan(now), 8370)
 
     def test_register_weekday_jobs(self):
         fake_schedule = _FakeSchedule()
         jobs = register_weekday_scan_jobs(fake_schedule, lambda: None)
         self.assertEqual(len(jobs), 5 * len(SCAN_TIME_STRINGS))
         self.assertIn(("monday", "09:20"), fake_schedule.registry)
-        self.assertIn(("friday", "15:00"), fake_schedule.registry)
+        self.assertIn(("friday", "15:15"), fake_schedule.registry)
 
 
 if __name__ == "__main__":

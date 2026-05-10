@@ -1,26 +1,44 @@
-# Swing scanner watchlist (example)
+# Swing scanner watchlist (example) — Indian equities (NSE)
 # - One symbol per line.
 # - Empty lines and lines starting with '#' are ignored.
 # - Inline '#' comments after a symbol are stripped.
-# - Symbol formats are provider-specific:
-#     yfinance: NSE needs the ".NS" suffix (e.g. RELIANCE.NS); US tickers bare (AAPL).
-#     dhan:     bare NSE ticker (e.g. RELIANCE) — security ids are mapped internally.
-#     finnhub:  same as yfinance for NSE; US bare; both require a paid plan for candles.
+# - Symbol format (yfinance / finnhub): NSE tickers need the ".NS" suffix.
+#   For Dhan, drop the suffix (security ids are mapped internally).
 
-# --- NSE large caps (yfinance / finnhub) ---
+# --- Energy ---
 RELIANCE.NS
+
+# --- IT services ---
 INFY.NS
 TCS.NS
+
+# --- Banking ---
 HDFCBANK.NS
 ICICIBANK.NS
 SBIN.NS
-LT.NS
 AXISBANK.NS
 
-# --- US large caps ---
-AAPL
-MSFT
-NVDA
-GOOGL
-AMZN
-META
+# --- NBFC ---
+BAJFINANCE.NS
+
+# --- Infra / Capex ---
+LT.NS
+
+# --- Telecom ---
+BHARTIARTL.NS
+
+# --- FMCG ---
+ITC.NS
+HINDUNILVR.NS
+
+# --- Auto ---
+MARUTI.NS
+
+# --- Pharma ---
+SUNPHARMA.NS
+
+# --- Paints / Housing proxy ---
+ASIANPAINT.NS
+
+# --- Conglomerate ---
+ADANIENT.NS

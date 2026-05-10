@@ -39,7 +39,10 @@ class TradeIdeaTests(unittest.TestCase):
         idea = GeminiIdeaGenerator(api_key="").build_trade_idea(signal, "Positive")
         text = format_trade_idea(idea)
         self.assertIn("Swing Alert: TCS", text)
-        self.assertIn("Stop-Loss", text)
+        self.assertIn("Entry:", text)
+        self.assertIn("Target:", text)
+        self.assertIn("Stop:", text)
+        self.assertIn("\u20b9", text)  # INR rupee symbol
 
 
 if __name__ == "__main__":

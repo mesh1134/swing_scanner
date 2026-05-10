@@ -1,8 +1,12 @@
 from datetime import datetime, timedelta, time
 from typing import Optional
 
-SCAN_TIMES = (time(9, 20), time(12, 15), time(15, 0))
-SCAN_TIME_STRINGS = ("09:20", "12:15", "15:00")
+# NSE Market: 09:15 - 15:30 IST
+# 1. 5 mins after opening: 09:20
+# 2. 5 mins after mathematical mid-market (12:22:30): 12:27
+# 3. 15 mins before ending: 15:15
+SCAN_TIMES = (time(9, 20), time(12, 27), time(15, 15))
+SCAN_TIME_STRINGS = ("09:20", "12:27", "15:15")
 # 8-day lookahead ensures we can always reach the next weekday slot, even from weekends.
 MAX_LOOKAHEAD_DAYS = 8
 
