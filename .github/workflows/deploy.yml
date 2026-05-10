@@ -27,6 +27,7 @@ jobs:
           host: ${{ secrets.DROPLET_HOST }}
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
+          timeout: 2m
           script: |
             set -euo pipefail
             REPO_DIR=/opt/swing_scanner
