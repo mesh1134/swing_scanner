@@ -29,20 +29,22 @@ jobs:
           key: ${{ secrets.DROPLET_SSH_KEY }}
           script: |
             set -euo pipefail
-            cd /opt/swing_scanner
-            git config --global --add safe.directory /opt/swing_scanner
-            PREV_SHA=$(git rev-parse HEAD)
+            REPO_DIR=/opt/swing_scanner
+            APP_USER=swing
+            cd "$REPO_DIR"
+            sudo -u "$APP_USER" git config --global --add safe.directory "$REPO_DIR"
+            PREV_SHA=$(sudo -u "$APP_USER" git -C "$REPO_DIR" rev-parse HEAD)
             TARGET_SHA=${{ github.sha }}
             rollback() {
               echo "[deploy] Rolling back to ${PREV_SHA}"
-              git checkout -f "$PREV_SHA"
-              /opt/swing_scanner/.venv/bin/pip install -r requirements.txt
+              sudo -u "$APP_USER" git -C "$REPO_DIR" checkout -f "$PREV_SHA"
+              sudo -u "$APP_USER" "$REPO_DIR/.venv/bin/pip" install -r "$REPO_DIR/requirements.txt"
               sudo systemctl daemon-reload
               sudo systemctl restart swing-scanner.timer
             }
-            git fetch origin
-            git checkout -f "$TARGET_SHA"
-            /opt/swing_scanner/.venv/bin/pip install -r requirements.txt
+            sudo -u "$APP_USER" git -C "$REPO_DIR" fetch origin
+            sudo -u "$APP_USER" git -C "$REPO_DIR" checkout -f "$TARGET_SHA"
+            sudo -u "$APP_USER" "$REPO_DIR/.venv/bin/pip" install -r "$REPO_DIR/requirements.txt"
             sudo systemctl daemon-reload
             sudo systemctl restart swing-scanner.timer
             if ! sudo systemctl is-active --quiet swing-scanner.timer; then
@@ -55,7 +57,7 @@ jobs:
               rollback
               exit 1
             fi
-            if ! /opt/swing_scanner/.venv/bin/python -m swing_scanner.app --healthcheck --watchlist /opt/swing_scanner/watchlist.txt; then
+            if ! sudo -u "$APP_USER" bash -lc "set -a; source /etc/swing-scanner.env; set +a; $REPO_DIR/.venv/bin/python -m swing_scanner.app --healthcheck --watchlist /opt/swing_scanner/watchlist.txt"; then
               echo "[deploy] healthcheck failed"
               rollback
               exit 1
