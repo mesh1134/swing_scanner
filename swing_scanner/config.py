@@ -21,8 +21,6 @@ class Settings:
     # DhanHQ credentials (only required when MARKET_DATA_PROVIDER=dhan).
     dhan_client_id: str = os.getenv("DHAN_CLIENT_ID", "")
     dhan_access_token: str = os.getenv("DHAN_ACCESS_TOKEN", "")
-    # Finnhub key (only required when MARKET_DATA_PROVIDER=finnhub).
-    finnhub_api_key: str = os.getenv("FINNHUB_API_KEY", "")
 
     # Gemini model used by the analyst layer AND by the Gemini news
     # client (when news_source=gemini). 2.5-flash is the current best

@@ -33,6 +33,10 @@ def format_trade_idea(analysis: TradeAnalysis, diagnostic: bool = False) -> str:
         )
     else:
         header = f"Swing Alert: {analysis.symbol}  [{analysis.strategy_name}]"
+    # Extract base symbol without the .NS suffix for Groww search
+    base_symbol = analysis.symbol.split(".")[0]
+    groww_link = f"https://groww.in/search?q={base_symbol}"
+
     return (
         f"{header}\n"
         f"Direction: {analysis.direction}\n"
@@ -45,7 +49,9 @@ def format_trade_idea(analysis: TradeAnalysis, diagnostic: bool = False) -> str:
         f"Trend: {analysis.trend}\n"
         f"Volume: {analysis.volume}\n"
         f"Quality: {analysis.setup_quality}\n"
-        f"Risks: {analysis.risks}"
+        f"Risks: {analysis.risks}\n"
+        f"\n"
+        f"\U0001F50D Trade on Groww: {groww_link}"
     )
 
 

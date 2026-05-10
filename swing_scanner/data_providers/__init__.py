@@ -13,7 +13,6 @@ from swing_scanner.data_providers.factory import (
     SUPPORTED_PROVIDERS,
     build_provider,
 )
-from swing_scanner.data_providers.finnhub_provider import FinnhubProvider
 from swing_scanner.data_providers.mock_provider import MockProvider
 from swing_scanner.data_providers.yfinance_provider import YFinanceProvider
 
@@ -21,7 +20,6 @@ __all__ = [
     "Candle",
     "MarketDataProvider",
     "DhanProvider",
-    "FinnhubProvider",
     "MockProvider",
     "YFinanceProvider",
     "CachedProvider",

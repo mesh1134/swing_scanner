@@ -1,96 +1,138 @@
 # 💹 Swing Scanner (NSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Market: NSE](https://img.shields.io/badge/Market-NSE-orange.svg)](https://www.nseindia.com/)
+[![Deployment: DigitalOcean](https://img.shields.io/badge/Deployment-DigitalOcean-blue.svg)](https://www.digitalocean.com/)
 
-A premium, daily swing-trade candidate scanner for Indian equities (NSE). This tool automates the process of identifying high-probability swing setups, enriching them with grounded AI analysis, and delivering trade ideas directly to Telegram.
+A professional-grade, AI-powered swing-trade candidate scanner for the Indian Equities market (NSE). This tool bridges the gap between **deterministic quantitative filters** and **probabilistic AI reasoning**, delivering high-probability trade setups directly to your Telegram.
+
+![Swing Scanner Telegram Mockup](file:///C:/Users/soume/.gemini/antigravity/brain/17ec44f8-6986-4cec-9d6a-30fd1a406a79/swing_scanner_telegram_mockup_1778424150203.png)
 
 ---
 
-## 🚀 Overview
+## 🌟 Why This Project?
 
-*   **Market Focus:** NSE (Indian Equities)
-*   **Currency:** INR (₹)
-*   **Timezone:** Asia/Kolkata (UTC+05:30)
-*   **Philosophy:** Deterministic filters identify *what* to trade; AI explains *why* it's moving.
+Most trading bots are either purely technical (missing market context) or purely AI-based (hallucinating price levels). **Swing Scanner** solves this with a multi-layered architecture:
+
+1.  **Quantitative Filter:** A high-performance engine scans thousands of data points to identify setups with specific RSI, MACD, and Bollinger Band characteristics.
+2.  **Agentic Intelligence:** On detection, an AI Agent (Gemini 2.5 Flash) performs real-time Google Search grounding to understand *why* the stock is moving (earnings, news, sector tailwinds).
+3.  **Deterministic Engine:** Trade levels (Entry, Target, Stop-Loss) are calculated using robust mathematical models, ensuring the AI never "invents" a price.
+
+---
 
 ## ✨ Key Features
 
-*   **High-Performance Scanning:** Parallelized per-symbol pipeline using `ThreadPoolExecutor` (scans 16+ symbols in ~35s).
-*   **Grounded AI Analysis:** Uses **Gemini 1.5 Flash** with Google Search grounding to fetch real-time news and generate structured trade theses.
-*   **Deterministic Trade Engine:** Math-driven trade levels (Entry, Target, Stop-Loss) using a robust 3-stop logic and 2.0% risk floor.
-*   **Rich Telegram Delivery:** Beautifully formatted alerts including risk/reward ratios, risk percentages, and multi-dimensional AI commentary (Momentum, Trend, Volume, Risks).
-*   **Lightweight Architecture:** Zero third-party HTTP libraries (uses `urllib.request`). Graceful degradation if `pandas` or `ta` are missing.
+### 🧠 Grounded AI Analysis
+Uses **Gemini 2.5 Flash** with search grounding to provide structured analyst-grade commentary. It evaluates:
+- **Momentum & Trend:** RSI, MACD, and EMA relationship.
+- **Volume Quality:** Relative volume vs. 20-bar averages.
+- **Risk Assessment:** Real-time news catalysts and invalidation triggers.
 
-## 🛠️ Quick Start
+### 🕒 NSE-Specific Intelligence
+Automated scheduling aligned with the Indian market lifecycle:
+- **09:20 IST:** Opening momentum scan (5m after open).
+- **12:27 IST:** Mid-market stability check.
+- **15:15 IST:** Closing window for EOD setups.
+
+### 🗄️ Persistent Intelligence
+Integrated **SQLite Persistence** records every scan, signal, and AI thesis. This creates a rich dataset for:
+- Historical lookback of trade ideas.
+- Win-rate and performance tracking.
+- Quantitative backtesting of the "AI Thesis" vs. actual outcomes.
+
+### ⚡ Parallelized Performance
+Built with `ThreadPoolExecutor`, the scanner can process a 50+ symbol watchlist in seconds, ensuring you never miss a fast-moving setup.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Core:** Python 3.11+
+- **Quantitative:** Pandas, TA-Lib (or fallback), yfinance
+- **AI:** Google Gemini 2.5 Flash (via API)
+- **Database:** SQLite3
+- **Delivery:** Telegram Bot API
+- **Networking:** Pure `urllib` (Zero third-party HTTP dependencies for minimal overhead)
+- **Deployment:** DigitalOcean Droplet (Ubuntu/Linux)
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    A[Watchlist] --> B[Market Data Provider]
+    B --> C[Strategy Engine]
+    C -->|Deterministic Filter| D{Is Candidate?}
+    D -->|Yes| E[News Agent - Search Grounding]
+    E --> F[Gemini AI Analyst]
+    F --> G[Deterministic Trade Engine]
+    G --> H[SQLite Persistence]
+    H --> I[Telegram Delivery]
+    D -->|No| J[Log Signal to DB]
+```
+
+---
+
+## 🚀 Quick Start
 
 ### 1. Installation
-```powershell
+```bash
+git clone https://github.com/yourusername/swing_scanner.git
+cd swing_scanner
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
 ### 2. Configuration
-Create a `.env` file or set the following environment variables:
+Create a `.env` file from the example:
 ```bash
 GEMINI_API_KEY=your_google_ai_studio_key
-TELEGRAM_BOT_TOKEN=your_bot_token      # Optional
-TELEGRAM_CHAT_ID=your_chat_id          # Optional
-MARKET_DATA_PROVIDER=yfinance           # Default: yfinance (also supports: dhan, mock)
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
 ```
 
-### 3. Run a Scan
+### 3. Usage
 ```powershell
-# Run once for the default watchlist
+# Run a single scan on the example watchlist
 python -m swing_scanner.app --watchlist .\watchlist.example.txt --run-once
 
-# Smoke test AI analysis for all symbols (diagnostic mode)
-python -m swing_scanner.app --watchlist .\watchlist.example.txt --run-once --debug --force-analyze-all
-
-# Run for specific symbols
-python -m swing_scanner.app --symbols RELIANCE.NS,INFY.NS --run-once
+# Start the market-hours scheduler
+python -m swing_scanner.app --watchlist .\watchlist.example.txt
 ```
 
-## 🏗️ Architecture
+---
 
-1.  **Watchlist Manager:** Parses tickers from text files (supports comments and blank lines).
-2.  **Market Data Provider:** Pluggable interface for fetching daily candles (default: `yfinance`).
-3.  **Strategy Engine:** Deterministic 5-condition filter:
-    *   RSI Range
-    *   MACD Positive State
-    *   Price relative to EMA20
-    *   Bollinger Band Position
-    *   Relative Volume
-4.  **News Client:** Gemini-powered search grounding (or Perplexity) for latest market catalysts.
-5.  **AI Analyst:** Gemini 1.5 Flash generates structured JSON commentary (Thesis, Momentum, Trend, Volume, Quality, Risks).
-6.  **Trade Engine:** Calculates precise levels with risk-adjusted stops (capped at 4%, floor at 2%).
-7.  **Notifier:** Dispatches formatted Telegram alerts or stdout logs.
+## ☁️ Deployment
+
+The system is designed for **24/7 automated operation** and is currently deployed on a **DigitalOcean Droplet**.
+
+- **Environment:** Ubuntu 22.04 LTS
+- **Process Management:** `systemd` or `screen` for persistent background execution.
+- **Automation:** Uses the internal `scheduler.py` aligned with NSE market hours (09:20, 12:27, 15:15 IST).
+- **Uptime Monitoring:** Real-time heartbeats sent via Telegram.
+
+---
 
 ## 🧪 Testing
 
-The project uses the standard `unittest` framework.
+We maintain a high-quality codebase with 18+ comprehensive tests covering persistence, scheduling, and AI logic.
 
 ```powershell
-# Run all tests
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
 ```
 
-## 📋 Environment Variables Reference
+---
 
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| `GEMINI_API_KEY` | Key from Google AI Studio | **Required** |
-| `MARKET_DATA_PROVIDER` | `yfinance`, `dhan`, `mock`, `finnhub` | `yfinance` |
-| `SCAN_STRATEGY` | Strategy name from registry | `swing` |
-| `GEMINI_MODEL` | Gemini model version | `gemini-2.5-flash` |
-| `NEWS_SOURCE` | `gemini`, `perplexity`, `none` | `gemini` |
-| `SCAN_MAX_WORKERS` | Parallel thread count | `8` |
-| `SCAN_CACHE_TTL` | Cache duration (seconds) | `600` |
+## 📋 Roadmap
 
-## 🗺️ Roadmap
-
-- [ ] **Persistence:** SQLite DB for historical lookback and win-rate tracking.
-- [ ] **NSE Scheduling:** Intraday/EOD automation aligned with NSE market hours.
-- [ ] **Watchlist Tiers:** Separate A-list and B-list candidates for tiered scanning.
-- [ ] **FastAPI Layer:** Backend for a future web-based dashboard.
+- [x] **Persistence:** SQLite DB for historical lookback.
+- [x] **NSE Scheduling:** Automation for Indian market hours.
+- [ ] **FastAPI Backend:** REST API for mobile/web dashboards.
+- [ ] **Multi-Broker Integration:** Native execution for Dhan, Zerodha, etc.
 
 ---
-*Disclaimer: This is a tool for technical analysis. Trading involves risk. Use the AI commentary as an analytical aid, not financial advice.*
+
+*Disclaimer: This is a tool for technical analysis. Trading involves risk. All trade ideas are generated for educational purposes and do not constitute financial advice.*
+

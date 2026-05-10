@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 from swing_scanner.data_providers.base import MarketDataProvider
 from swing_scanner.data_providers.cache import CachedProvider
 from swing_scanner.data_providers.dhan_provider import DhanProvider
-from swing_scanner.data_providers.finnhub_provider import FinnhubProvider
 from swing_scanner.data_providers.mock_provider import MockProvider
 from swing_scanner.data_providers.yfinance_provider import YFinanceProvider
 
@@ -22,7 +21,7 @@ if TYPE_CHECKING:  # pragma: no cover - import cycle guard
     from swing_scanner.config import Settings
 
 
-SUPPORTED_PROVIDERS = ("yfinance", "dhan", "finnhub", "mock")
+SUPPORTED_PROVIDERS = ("yfinance", "dhan", "mock")
 DEFAULT_PROVIDER = "yfinance"
 
 
@@ -48,8 +47,6 @@ def build_provider(settings: "Settings") -> MarketDataProvider:
             client_id=settings.dhan_client_id,
             access_token=settings.dhan_access_token,
         )
-    elif name == "finnhub":
-        provider = FinnhubProvider(api_key=settings.finnhub_api_key)
     elif name == "mock":
         provider = MockProvider()
     else:  # yfinance / default
