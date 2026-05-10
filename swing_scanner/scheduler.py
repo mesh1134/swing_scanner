@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, time
+from zoneinfo import ZoneInfo
 from typing import Optional
 
 # NSE Market: 09:15 - 15:30 IST
@@ -9,18 +10,27 @@ SCAN_TIMES = (time(9, 20), time(12, 27), time(15, 15))
 SCAN_TIME_STRINGS = ("09:20", "12:27", "15:15")
 # 8-day lookahead ensures we can always reach the next weekday slot, even from weekends.
 MAX_LOOKAHEAD_DAYS = 8
+IST = ZoneInfo("Asia/Kolkata")
+
+
+def _to_ist(now: datetime) -> datetime:
+    if now.tzinfo is None:
+        return now.replace(tzinfo=IST)
+    return now.astimezone(IST)
 
 
 def is_weekday(now: datetime) -> bool:
-    return now.weekday() <= 4
+    return _to_ist(now).weekday() <= 4
 
 
 def is_scheduled_scan_time(now: datetime) -> bool:
-    current = now.replace(second=0, microsecond=0).time()
-    return is_weekday(now) and current in SCAN_TIMES
+    local_now = _to_ist(now)
+    current = local_now.replace(second=0, microsecond=0).time()
+    return is_weekday(local_now) and current in SCAN_TIMES
 
 
 def seconds_to_next_scan(now: datetime) -> int:
+    now = _to_ist(now)
     target: Optional[datetime] = None
     baseline = now.replace(second=0, microsecond=0)
     for day_offset in range(0, MAX_LOOKAHEAD_DAYS):

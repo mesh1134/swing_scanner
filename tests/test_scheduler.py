@@ -1,5 +1,6 @@
 import unittest
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from swing_scanner.scheduler import (
     SCAN_TIME_STRINGS,
@@ -59,6 +60,10 @@ class SchedulerTests(unittest.TestCase):
         self.assertEqual(len(jobs), 5 * len(SCAN_TIME_STRINGS))
         self.assertIn(("monday", "09:20"), fake_schedule.registry)
         self.assertIn(("friday", "15:15"), fake_schedule.registry)
+
+    def test_utc_time_matches_ist_slot(self):
+        utc_now = datetime(2026, 5, 8, 3, 50, 0, tzinfo=ZoneInfo("UTC"))
+        self.assertTrue(is_scheduled_scan_time(utc_now))
 
 
 if __name__ == "__main__":

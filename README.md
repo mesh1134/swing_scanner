@@ -6,8 +6,6 @@
 
 A professional-grade, AI-powered swing-trade candidate scanner for the Indian Equities market (NSE). This tool bridges the gap between **deterministic quantitative filters** and **probabilistic AI reasoning**, delivering high-probability trade setups directly to your Telegram.
 
-![Swing Scanner Telegram Mockup](file:///C:/Users/soume/.gemini/antigravity/brain/17ec44f8-6986-4cec-9d6a-30fd1a406a79/swing_scanner_telegram_mockup_1778424150203.png)
-
 ---
 
 ## 🌟 Why This Project?
@@ -106,18 +104,35 @@ python -m swing_scanner.app --watchlist .\watchlist.example.txt
 
 ## ☁️ Deployment
 
-The system is designed for **24/7 automated operation** and is currently deployed on a **DigitalOcean Droplet**.
+Production deployment assets are included:
+- `deploy/systemd/swing-scanner.service` and `deploy/systemd/swing-scanner.timer`
+- `deploy/scripts/install_systemd.sh`
+- `.github/workflows/ci.yml` and `.github/workflows/deploy.yml`
 
-- **Environment:** Ubuntu 22.04 LTS
-- **Process Management:** `systemd` or `screen` for persistent background execution.
-- **Automation:** Uses the internal `scheduler.py` aligned with NSE market hours (09:20, 12:27, 15:15 IST).
-- **Uptime Monitoring:** Real-time heartbeats sent via Telegram.
+Recommended VM model:
+- Use the `systemd` timer to run `--run-once` at NSE windows.
+- Keep secrets in `/etc/swing-scanner.env` with root-only permissions.
+- Keep the production watchlist at `/opt/swing_scanner/watchlist.txt`.
+- Use `python -m swing_scanner.app --healthcheck --watchlist /opt/swing_scanner/watchlist.txt` as the post-deploy smoke check.
+
+Preflight checklist (before enabling timer):
+1. Create Linux user/group `swing`.
+2. Create `/etc/swing-scanner.env` and set `chmod 600`.
+3. Ensure `/opt/swing_scanner/watchlist.txt` exists and is readable.
+4. Run `deploy/scripts/install_systemd.sh`.
+5. Validate with:
+   - `sudo systemctl start swing-scanner.service`
+   - `journalctl -u swing-scanner.service -n 100 --no-pager`
+
+Scheduler modes:
+- **Production (recommended):** `systemd` timer (`deploy/systemd/swing-scanner.timer`) runs one-shot scans at fixed NSE windows.
+- **Dev/local mode:** in-process loop (`python -m swing_scanner.app --watchlist ...`) depends on the host clock/timezone and is not the preferred production mode.
 
 ---
 
 ## 🧪 Testing
 
-I maintain a high-quality codebase with 18+ comprehensive tests covering persistence, scheduling, and AI logic.
+I maintain a high-quality codebase with 20+ comprehensive tests covering persistence, scheduling, HTTP retry behavior, and AI logic.
 
 ```powershell
 python -m unittest discover -s tests -v

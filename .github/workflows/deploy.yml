@@ -1,0 +1,54 @@
+name: Deploy
+
+on:
+  push:
+    branches: ["main"]
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to droplet
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/swing_scanner
+            PREV_SHA=$(git rev-parse HEAD)
+            TARGET_SHA=${{ github.sha }}
+            rollback() {
+              echo "[deploy] Rolling back to ${PREV_SHA}"
+              git checkout -f "$PREV_SHA"
+              /opt/swing_scanner/.venv/bin/pip install -r requirements.txt
+              sudo systemctl daemon-reload
+              sudo systemctl restart swing-scanner.timer
+            }
+            git fetch origin
+            git checkout -f "$TARGET_SHA"
+            /opt/swing_scanner/.venv/bin/pip install -r requirements.txt
+            sudo systemctl daemon-reload
+            sudo systemctl restart swing-scanner.timer
+            if ! sudo systemctl is-active --quiet swing-scanner.timer; then
+              echo "[deploy] timer is not active"
+              rollback
+              exit 1
+            fi
+            if ! sudo systemctl show -p LoadState --value swing-scanner.service | grep -qx loaded; then
+              echo "[deploy] service unit is not loaded"
+              rollback
+              exit 1
+            fi
+            if ! /opt/swing_scanner/.venv/bin/python -m swing_scanner.app --healthcheck --watchlist /opt/swing_scanner/watchlist.txt; then
+              echo "[deploy] healthcheck failed"
+              rollback
+              exit 1
+            fi

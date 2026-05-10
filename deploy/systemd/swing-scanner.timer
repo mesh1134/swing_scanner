@@ -1,0 +1,12 @@
+[Unit]
+Description=Run swing scanner at NSE windows
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 03:50:00 UTC
+OnCalendar=Mon..Fri *-*-* 06:57:00 UTC
+OnCalendar=Mon..Fri *-*-* 09:45:00 UTC
+Persistent=true
+Unit=swing-scanner.service
+
+[Install]
+WantedBy=timers.target

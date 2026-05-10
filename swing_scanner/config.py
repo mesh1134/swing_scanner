@@ -13,6 +13,7 @@ except ImportError:  # pragma: no cover - python-dotenv is optional at runtime
 
 @dataclass(frozen=True)
 class Settings:
+    app_timezone: str = os.getenv("APP_TIMEZONE", "Asia/Kolkata")
     # Selects which MarketDataProvider implementation the scanner uses.
     # See swing_scanner.data_providers.factory for supported values.
     # Defaults to "yfinance" because it is keyless and covers NSE + US.
@@ -68,3 +69,9 @@ class Settings:
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
     telegram_chat_id: str = os.getenv("TELEGRAM_CHAT_ID", "")
+    telegram_heartbeat_enabled: bool = os.getenv("TELEGRAM_HEARTBEAT_ENABLED", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
@@ -19,12 +21,16 @@ class DatabaseManager:
 
     def __init__(self, db_path: str):
         self.db_path = db_path
+        self._write_lock = threading.Lock()
         self._init_db()
 
     @contextmanager
     def _connection(self) -> Generator[sqlite3.Connection, None, None]:
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=10.0)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA busy_timeout = 10000")
         try:
             yield conn
             conn.commit()
@@ -37,8 +43,6 @@ class DatabaseManager:
     def _init_db(self) -> None:
         """Create tables if they don't exist."""
         with self._connection() as conn:
-            conn.execute("PRAGMA foreign_keys = ON")
-            
             # Scans table: records every time the app runs a scan cycle.
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS scans (
@@ -117,25 +121,26 @@ class DatabaseManager:
 
     def start_scan(self, symbols_count: int) -> int:
         """Record the start of a scan and return the scan_id."""
-        with self._connection() as conn:
-            cursor = conn.execute(
+        return self._with_write_retry(
+            lambda conn: conn.execute(
                 "INSERT INTO scans (timestamp, symbols_count, status) VALUES (?, ?, ?)",
-                (datetime.now().isoformat(), symbols_count, "started")
-            )
-            return cursor.lastrowid
+                (datetime.now().isoformat(), symbols_count, "started"),
+            ).lastrowid
+        )
 
     def complete_scan(self, scan_id: int, status: str = "completed", error_message: str | None = None) -> None:
         """Update the scan status upon completion or failure."""
-        with self._connection() as conn:
-            conn.execute(
+        self._with_write_retry(
+            lambda conn: conn.execute(
                 "UPDATE scans SET status = ?, error_message = ? WHERE id = ?",
-                (status, error_message, scan_id)
+                (status, error_message, scan_id),
             )
+        )
 
     def save_signal(self, scan_id: int, signal: SetupSignal, strategy_name: str) -> int:
         """Persist a SetupSignal to the database."""
-        with self._connection() as conn:
-            cursor = conn.execute(
+        return self._with_write_retry(
+            lambda conn: conn.execute(
                 """
                 INSERT INTO signals (
                     scan_id, symbol, strategy, is_candidate, close, rsi, macd, 
@@ -156,13 +161,13 @@ class DatabaseManager:
                     signal.volume,
                     signal.avg_volume
                 )
-            )
-            return cursor.lastrowid
+            ).lastrowid
+        )
 
     def save_trade_idea(self, signal_id: int, analysis: TradeAnalysis, is_diagnostic: bool = False) -> int:
         """Persist a TradeAnalysis (Trade Idea) to the database."""
-        with self._connection() as conn:
-            cursor = conn.execute(
+        return self._with_write_retry(
+            lambda conn: conn.execute(
                 """
                 INSERT INTO trade_ideas (
                     signal_id, entry, target, stop_loss, risk_reward,
@@ -187,8 +192,8 @@ class DatabaseManager:
                     analysis.source,
                     1 if is_diagnostic else 0
                 )
-            )
-            return cursor.lastrowid
+            ).lastrowid
+        )
 
     def get_recent_signals(self, symbol: str, limit: int = 5) -> list[dict[str, Any]]:
         """Retrieve the most recent signals for a given symbol."""
@@ -208,8 +213,8 @@ class DatabaseManager:
 
     def save_signal_outcome(self, outcome: dict[str, Any]) -> int:
         """Persist a post-signal evaluation outcome to the database."""
-        with self._connection() as conn:
-            cursor = conn.execute(
+        return self._with_write_retry(
+            lambda conn: conn.execute(
                 """
                 INSERT OR REPLACE INTO signal_outcomes (
                     signal_id, symbol, strategy, scan_timestamp, evaluation_timestamp,
@@ -232,8 +237,8 @@ class DatabaseManager:
                     1 if outcome["target_hit"] else 0,
                     1 if outcome["stop_hit"] else 0
                 )
-            )
-            return cursor.lastrowid
+            ).lastrowid
+        )
 
     def get_pending_evaluations(self, window_days: int) -> list[dict[str, Any]]:
         """Find candidate signals that are old enough to evaluate but lack an outcome for this window."""
@@ -264,3 +269,14 @@ class DatabaseManager:
                 (window_days, window_days)
             )
             return [dict(row) for row in rows]
+
+    def _with_write_retry(self, operation, max_attempts: int = 4):
+        with self._write_lock:
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    with self._connection() as conn:
+                        return operation(conn)
+                except sqlite3.OperationalError as exc:
+                    if "locked" not in str(exc).lower() or attempt == max_attempts:
+                        raise
+                    time.sleep(0.1 * attempt)

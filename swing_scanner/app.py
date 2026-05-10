@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import logging
+import os
+from pathlib import Path
+import sqlite3
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # Force UTF-8 on stdout/stderr so the rupee symbol (\u20b9) and other
 # non-ASCII output survive redirection to a file or capture by cron /
@@ -23,11 +28,15 @@ from swing_scanner.config import Settings
 from swing_scanner.data_providers import MarketDataProvider, build_provider
 from swing_scanner.delivery import TelegramNotifier, format_trade_idea
 from swing_scanner.evaluator import evaluate_outcomes
+from swing_scanner.logging_utils import configure_logging
 from swing_scanner.news import build_news_client
 from swing_scanner.scheduler import register_weekday_scan_jobs
 from swing_scanner.persistence import DatabaseManager
 from swing_scanner.strategies import build_strategy
 from swing_scanner.watchlist import load_watchlist
+
+logger = logging.getLogger(__name__)
+DEFAULT_HEALTHCHECK_WATCHLIST = "watchlist.example.txt"
 
 
 def run_scan(
@@ -76,8 +85,13 @@ def run_scan(
     # stdout output stay in the main thread to keep alert ordering
     # deterministic and prevent interleaved debug logs.
     max_workers = max(1, min(settings.scan_max_workers, len(symbols)))
+    started_at = time.monotonic()
 
     scan_id = db.start_scan(len(symbols)) if db else None
+    logger.info(
+        "scan_start",
+        extra={"event": "scan_start", "scan_id": scan_id, "status": "started"},
+    )
 
     def worker(symbol: str) -> _SymbolResult:
         return _process_symbol(
@@ -125,6 +139,16 @@ def run_scan(
     
     if db and scan_id:
         db.complete_scan(scan_id)
+    duration_ms = int((time.monotonic() - started_at) * 1000)
+    logger.info(
+        "scan_complete",
+        extra={
+            "event": "scan_complete",
+            "scan_id": scan_id,
+            "duration_ms": duration_ms,
+            "status": "completed",
+        },
+    )
 
     return alerts
 
@@ -166,7 +190,15 @@ def _process_symbol(
     debug_lines: list[str] = []
     # 90d window: comfortably exceeds analysis.py's 30-row floor and
     # absorbs weekends/holidays from any provider.
-    candles = provider.fetch_candles(symbol=symbol, lookback_days=90)
+    symbol_started = time.monotonic()
+    try:
+        candles = provider.fetch_candles(symbol=symbol, lookback_days=90)
+    except Exception:
+        logger.exception(
+            "symbol_fetch_failed",
+            extra={"event": "symbol_fetch_failed", "scan_id": scan_id, "symbol": symbol, "status": "failed"},
+        )
+        return _SymbolResult(symbol, None, False, debug_lines)
     if debug:
         debug_lines.append(f"[debug] {symbol}: fetched {len(candles)} candles")
     signal = strategy.analyze(symbol=symbol, candles=candles)
@@ -204,6 +236,16 @@ def _process_symbol(
     # (non-candidate) emission so the alert can never be mistaken for
     # a real trade signal even if copy-pasted out of console context.
     message = format_trade_idea(analysis, diagnostic=is_force_diag)
+    logger.info(
+        "symbol_processed",
+        extra={
+            "event": "symbol_processed",
+            "scan_id": scan_id,
+            "symbol": symbol,
+            "status": "ok",
+            "duration_ms": int((time.monotonic() - symbol_started) * 1000),
+        },
+    )
     return _SymbolResult(symbol, message, is_force_diag, debug_lines)
 
 
@@ -234,7 +276,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Swing scanner runner")
     # --symbols and --watchlist are interchangeable sources; at least one
     # is required. CLI --symbols wins if both are supplied.
-    source = parser.add_mutually_exclusive_group(required=True)
+    source = parser.add_mutually_exclusive_group(required=False)
     source.add_argument("--symbols", help="Comma-separated symbol tokens")
     source.add_argument(
         "--watchlist",
@@ -260,18 +302,111 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Evaluate historical signals against actual post-scan price action."
     )
+    parser.add_argument(
+        "--healthcheck",
+        action="store_true",
+        help="Validate configuration and exit 0 without scanning.",
+    )
     return parser.parse_args()
 
 
+def _resolve_healthcheck_watchlist(args: argparse.Namespace) -> tuple[str, str]:
+    if args.watchlist:
+        return args.watchlist, "cli(--watchlist)"
+    env_watchlist = os.getenv("SCAN_WATCHLIST_PATH", "").strip()
+    if env_watchlist:
+        return env_watchlist, "env(SCAN_WATCHLIST_PATH)"
+    return DEFAULT_HEALTHCHECK_WATCHLIST, f"default({DEFAULT_HEALTHCHECK_WATCHLIST})"
+
+
+def _run_healthcheck(args: argparse.Namespace, settings: Settings) -> list[str]:
+    errors: list[str] = []
+
+    watchlist_path, watchlist_source = _resolve_healthcheck_watchlist(args)
+    try:
+        symbols = load_watchlist(watchlist_path)
+        if not symbols:
+            errors.append(f"Watchlist has no symbols: {watchlist_path}")
+    except Exception as exc:
+        errors.append(
+            f"Watchlist unreadable ({watchlist_source}): {watchlist_path} ({exc})"
+        )
+
+    if settings.scan_db_path:
+        db_path = Path(settings.scan_db_path)
+        db_dir = db_path.parent if str(db_path.parent) else Path(".")
+        if not db_dir.exists():
+            errors.append(f"DB directory does not exist: {db_dir}")
+        elif not os.access(db_dir, os.W_OK):
+            errors.append(f"DB directory is not writable: {db_dir}")
+        else:
+            try:
+                if db_path.exists():
+                    uri = f"file:{db_path.resolve().as_posix()}?mode=rw"
+                    with sqlite3.connect(uri, uri=True, timeout=2.0) as conn:
+                        conn.execute("PRAGMA user_version").fetchone()
+                else:
+                    probe = db_dir / ".scan_db_write_probe"
+                    with open(probe, "w", encoding="utf-8"):
+                        pass
+                    probe.unlink(missing_ok=True)
+            except Exception as exc:
+                errors.append(f"DB path is not writable/usable: {db_path} ({exc})")
+
+    provider_name = settings.market_data_provider.strip().lower()
+    if provider_name == "dhan" and (
+        not settings.dhan_client_id or not settings.dhan_access_token
+    ):
+        errors.append(
+            "MARKET_DATA_PROVIDER=dhan requires DHAN_CLIENT_ID and DHAN_ACCESS_TOKEN"
+        )
+
+    news_source = settings.news_source.strip().lower()
+    if news_source == "gemini" and not settings.gemini_api_key:
+        errors.append("NEWS_SOURCE=gemini requires GEMINI_API_KEY")
+    if news_source == "perplexity" and not settings.perplexity_api_key:
+        errors.append("NEWS_SOURCE=perplexity requires PERPLEXITY_API_KEY")
+
+    if settings.telegram_heartbeat_enabled and (
+        not settings.telegram_bot_token or not settings.telegram_chat_id
+    ):
+        errors.append(
+            "TELEGRAM_HEARTBEAT_ENABLED requires TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID"
+        )
+
+    return errors
+
+
 def main() -> None:
+    configure_logging()
     args = parse_args()
+    settings = Settings()
+
+    if args.healthcheck:
+        errors = _run_healthcheck(args, settings)
+        if errors:
+            for err in errors:
+                logger.error(
+                    f"healthcheck_error: {err}",
+                    extra={"event": "healthcheck_error", "status": "failed"},
+                )
+                print(f"HEALTHCHECK_ERROR: {err}")
+            raise SystemExit(1)
+        logger.info(
+            "healthcheck_ok",
+            extra={"event": "healthcheck_ok", "status": "ok"},
+        )
+        print("OK")
+        return
+
+    if not args.symbols and not args.watchlist:
+        raise SystemExit("Provide either --symbols or --watchlist (or use --healthcheck).")
     if args.symbols:
         symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
     else:
         symbols = load_watchlist(args.watchlist)
     if not symbols:
         raise SystemExit("No symbols to scan; check --symbols or --watchlist input.")
-    settings = Settings()
 
     if args.evaluate_outcomes:
         if not settings.scan_db_path:
@@ -289,8 +424,12 @@ def main() -> None:
         return
 
     def scheduled_job() -> None:
-        now = datetime.now()
+        now = datetime.now(ZoneInfo(settings.app_timezone))
         db = DatabaseManager(settings.scan_db_path) if settings.scan_db_path else None
+        notifier = TelegramNotifier(
+            bot_token=settings.telegram_bot_token,
+            chat_id=settings.telegram_chat_id,
+        )
         try:
             # CLI --debug wins; otherwise honor SCAN_DEBUG env (Settings).
             alerts = run_scan(
@@ -304,8 +443,20 @@ def main() -> None:
                 f"[{now.isoformat()}] Scan complete. "
                 f"Signals analysed: {len(alerts)}"
             )
+            if settings.telegram_heartbeat_enabled:
+                notifier.send(
+                    f"Heartbeat: scan finished at {now.isoformat()} ({settings.app_timezone}), alerts={len(alerts)}"
+                )
         except Exception as exc:
             print(f"[{now.isoformat()}] Scan skipped due to recoverable error: {exc}")
+            logger.exception(
+                "scan_failed",
+                extra={"event": "scan_failed", "status": "failed"},
+            )
+            if settings.telegram_heartbeat_enabled:
+                notifier.send(
+                    f"ALERT: scan failed at {now.isoformat()} ({settings.app_timezone}) error={exc}"
+                )
 
     if args.run_once:
         scheduled_job()

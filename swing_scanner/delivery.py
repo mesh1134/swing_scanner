@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import json
-from urllib import parse, request
+from urllib import parse
 
 from swing_scanner.ai_brain import TradeAnalysis
+from swing_scanner.http_client import HttpRequestError, post_form
 
 
 def format_trade_idea(analysis: TradeAnalysis, diagnostic: bool = False) -> str:
@@ -65,15 +65,8 @@ class TelegramNotifier:
             return False
         endpoint = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
         payload = parse.urlencode({"chat_id": self.chat_id, "text": text}).encode("utf-8")
-        req = request.Request(
-            endpoint,
-            data=payload,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            method="POST",
-        )
         try:
-            with request.urlopen(req, timeout=20) as response:
-                body = json.loads(response.read().decode("utf-8"))
+            body = post_form(endpoint, payload)
             return bool(body.get("ok"))
-        except Exception:
+        except HttpRequestError:
             return False

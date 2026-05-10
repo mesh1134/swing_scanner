@@ -18,9 +18,8 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from typing import Any
-from urllib import request
-
 from swing_scanner.analysis import SetupSignal
+from swing_scanner.http_client import post_json
 
 
 # --- Deterministic level math --------------------------------------------------
@@ -46,7 +45,7 @@ TARGET_R_MULTIPLE = 1.8     # Reward : risk multiple for the target.
 # stays driven by ``Settings.gemini_model`` (env: GEMINI_MODEL).
 GEMINI_ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "{model}:generateContent?key={api_key}"
+    "{model}:generateContent"
 )
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 
@@ -349,19 +348,16 @@ class GeminiTradeAnalyst:
     # internals
     # ------------------------------------------------------------------
     def _call_gemini(self, prompt: str) -> str:
-        endpoint = GEMINI_ENDPOINT.format(model=self.model, api_key=self.api_key)
+        endpoint = GEMINI_ENDPOINT.format(model=self.model)
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.3, "responseMimeType": "application/json"},
         }
-        req = request.Request(
+        raw = post_json(
             endpoint,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
+            payload=payload,
+            headers={"x-goog-api-key": self.api_key},
         )
-        with request.urlopen(req, timeout=20) as response:
-            raw = json.loads(response.read().decode("utf-8"))
         return raw["candidates"][0]["content"]["parts"][0]["text"]
 
     @staticmethod

@@ -1,19 +1,27 @@
 # Swing Scanner - Project Handoff
 # Hand this file to a fresh chat to resume work without re-deriving context.
-# Last updated: 2026-05-10 (post-persistence-and-scheduling session)
+# Last updated: 2026-05-10 (post-readme-and-deployment-optimization)
 
 project:
   name: swing_scanner
-  root: C:\Users\soume\PycharmProjects\swing_scanner
-  os: windows
-  shell: powershell
+  root: C:\Users\soume\Dev\swing_scanner
+  os: windows (dev) / Ubuntu 22.04 (prod)
+  shell: powershell (dev) / bash (prod)
   python: "3.11+ (uses dataclasses, type hints, urllib only - no requests lib)"
-  venv: .venv (PowerShell prompt confirms it's active in the user's terminal)
+  venv: .venv (active)
   purpose: >
     Daily swing-trade candidate scanner for Indian equities (NSE).
     Pulls candles -> runs deterministic indicator filter -> on candidate,
     fetches live grounded news -> calls LLM for structured commentary ->
     formats, persists to DB, and pushes to Telegram.
+  status: "Portfolio Ready / Production Deployed"
+
+deployment:
+  platform: DigitalOcean Droplet
+  os: Ubuntu 22.04 LTS
+  process_management: systemd / screen
+  automation: internal scheduler.py (NSE hours)
+  monitoring: Telegram heartbeats + logs
 
 owner_preferences:
   trading_market: NSE only (Indian equities)
@@ -107,20 +115,24 @@ session_history:
   - "2026-05-10 ~16:25: Updated README.md to reflect NSE focus, parallelization, and Gemini integration."
   - "2026-05-10 ~16:45: Implemented SQLite Persistence (persistence.py). Every scan cycle now records metadata, all technical signals, and AI trade ideas. Integrated into app.py and verified with 4 new tests."
   - "2026-05-10 ~16:55: Specialized scheduling for NSE hours. Updated times to 09:20 (5m after open), 12:27 (5m after mid-market), and 15:15 (15m before close). Updated scheduler tests to match."
+  - "2026-05-10 ~20:15: Major README.md overhaul. Added professional branding, badges, architectural diagrams (Mermaid), and a premium Telegram alert mockup. Optimized for professional portfolio/GitHub."
+  - "2026-05-10 ~20:20: Formally documented DigitalOcean deployment and 24/7 automation logic in README and handoff."
 
 recently_resolved:
   - SQLite Persistence layer shipped and verified with tests.
   - NSE-specific scheduling (Opening/Mid/Closing windows) implemented and tested.
+  - README optimized for GitHub/Resume with premium visuals and architectural clarity.
+  - Project deployed to DigitalOcean Droplet for 24/7 operation.
   - Total test count raised to 18; all passing.
 
 possible_next_steps:
   user_choice_pending: yes
   candidates:
-    - Tune SwingStrategy thresholds for Indian volatility (now easier with DB data)
-    - Add a FastAPI layer over run_scan + TradeAnalysis.to_dict() for a frontend
-    - Add Dhan provider key-up so user can use their broker as data source
-    - Add a "watchlist tier" concept (A-list vs B-list) with different scan cadence
     - Add outcome-tracking to persistence (record price 5/10 days later to calc win-rate)
+    - Add a FastAPI layer over run_scan + TradeAnalysis.to_dict() for a frontend
+    - Tune SwingStrategy thresholds for Indian volatility using the now-available DB data
+    - Add "watchlist tier" logic (A-list scanned 3x/day, B-list scanned 1x/day)
+    - Native Dhan broker integration for one-click execution via Telegram deep-links
 
 testing:
   framework: unittest
@@ -140,5 +152,6 @@ dependencies:
 how_to_resume_in_new_chat:
   paste_this_file_first: yes
   then_say: |
-    "Read PROJECT_HANDOFF.yaml. Persistence and NSE scheduling are both live. 
-    Pick from 'possible_next_steps' or tell me what's next."
+    "Read PROJECT_HANDOFF.yaml. The project is Portfolio-Ready and deployed on DigitalOcean. 
+    Persistence, NSE scheduling, and AI Analysis are all live. 
+    Pick from 'possible_next_steps' or propose a new optimization."

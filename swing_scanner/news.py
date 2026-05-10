@@ -20,12 +20,11 @@ of the provider/strategy factories.
 """
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
-from urllib import request
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle guard
     from swing_scanner.config import Settings
+from swing_scanner.http_client import HttpRequestError, post_json
 
 
 SUPPORTED_NEWS_SOURCES = ("gemini", "perplexity", "none")
@@ -64,7 +63,7 @@ class GeminiNewsClient(NewsClient):
 
         endpoint = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{self.model}:generateContent?key={self.api_key}"
+            f"{self.model}:generateContent"
         )
         prompt = (
             "You cover Indian equities listed on the NSE. Provide a concise "
@@ -84,17 +83,14 @@ class GeminiNewsClient(NewsClient):
             "tools": [{"google_search": {}}],
             "generationConfig": {"temperature": 0.2},
         }
-        req = request.Request(
-            endpoint,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
         try:
-            with request.urlopen(req, timeout=25) as response:
-                raw = json.loads(response.read().decode("utf-8"))
+            raw = post_json(
+                endpoint,
+                payload=payload,
+                headers={"x-goog-api-key": self.api_key},
+            )
             return raw["candidates"][0]["content"]["parts"][0]["text"].strip()
-        except Exception:
+        except HttpRequestError:
             return "Unable to fetch news summary."
 
 
@@ -119,20 +115,14 @@ class PerplexityNewsClient(NewsClient):
             ],
             "temperature": 0.2,
         }
-        req = request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            },
-            method="POST",
-        )
         try:
-            with request.urlopen(req, timeout=20) as response:
-                data = json.loads(response.read().decode("utf-8"))
+            data = post_json(
+                url,
+                payload=payload,
+                headers={"Authorization": f"Bearer {self.api_key}"},
+            )
             return data["choices"][0]["message"]["content"]
-        except Exception:
+        except HttpRequestError:
             return "Unable to fetch news summary."
 
 
