@@ -11,7 +11,7 @@ except ImportError:  # pragma: no cover
     pd = None
     RSIIndicator = MACD = EMAIndicator = BollingerBands = None
 
-from swing_scanner.data_layer import Candle
+from swing_scanner.data_providers import Candle
 
 
 @dataclass
