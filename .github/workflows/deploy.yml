@@ -4,9 +4,15 @@ on:
   push:
     branches: ["main"]
 
+permissions:
+  contents: read
+
 concurrency:
   group: production-deploy
   cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   deploy:
@@ -15,7 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Deploy to droplet
-        uses: appleboy/ssh-action@v1.0.3
+        # Pin third-party action by commit SHA (tag: v1.0.3).
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: ${{ secrets.DROPLET_USER }}

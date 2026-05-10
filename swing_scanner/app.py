@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 # UnicodeEncodeError mid-scan and abort the run).
 for _stream in (sys.stdout, sys.stderr):
     try:
-        _stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+        _stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined,union-attr]
     except (AttributeError, ValueError):  # pragma: no cover
         # Older Python or non-TextIOWrapper stream; skip silently.
         pass
