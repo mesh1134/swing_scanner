@@ -113,7 +113,7 @@ Recommended VM model:
 - Use the `systemd` timer to run `--run-once` at NSE windows.
 - Keep secrets in `/etc/swing-scanner.env` with root-only permissions.
 - Keep the production watchlist at `/opt/swing_scanner/watchlist.txt`.
-- Use `python -m swing_scanner.app --healthcheck --watchlist /opt/swing_scanner/watchlist.txt` as the post-deploy smoke check.
+- Use `sudo systemd-run --wait --collect --property=User=swing --property=Group=swing --property=WorkingDirectory=/opt/swing_scanner --property=EnvironmentFile=/etc/swing-scanner.env /opt/swing_scanner/.venv/bin/python -m swing_scanner.app --healthcheck --watchlist /opt/swing_scanner/watchlist.txt` as the post-deploy smoke check.
 
 Preflight checklist (before enabling timer):
 1. Create Linux user/group `swing`.
@@ -150,4 +150,3 @@ python -m unittest discover -s tests -v
 ---
 
 *Disclaimer: This is a tool for technical analysis. Trading involves risk. All trade ideas are generated for educational purposes and do not constitute financial advice.*
-

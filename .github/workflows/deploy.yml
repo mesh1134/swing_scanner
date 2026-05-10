@@ -58,8 +58,18 @@ jobs:
               rollback
               exit 1
             fi
-            if ! sudo -u "$APP_USER" bash -lc "set -a; source /etc/swing-scanner.env; set +a; $REPO_DIR/.venv/bin/python -m swing_scanner.app --healthcheck --watchlist /opt/swing_scanner/watchlist.txt"; then
+            if ! sudo systemd-run \
+              --unit=swing-scanner-healthcheck \
+              --quiet \
+              --wait \
+              --collect \
+              --property=User="$APP_USER" \
+              --property=Group="$APP_USER" \
+              --property=WorkingDirectory="$REPO_DIR" \
+              --property=EnvironmentFile=/etc/swing-scanner.env \
+              "$REPO_DIR/.venv/bin/python" -m swing_scanner.app --healthcheck --watchlist /opt/swing_scanner/watchlist.txt; then
               echo "[deploy] healthcheck failed"
+              sudo journalctl -u swing-scanner-healthcheck -n 100 --no-pager || true
               rollback
               exit 1
             fi
