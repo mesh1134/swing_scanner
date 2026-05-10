@@ -23,6 +23,7 @@ jobs:
           script: |
             set -euo pipefail
             cd /opt/swing_scanner
+            git config --global --add safe.directory /opt/swing_scanner
             PREV_SHA=$(git rev-parse HEAD)
             TARGET_SHA=${{ github.sha }}
             rollback() {
