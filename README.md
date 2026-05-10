@@ -117,7 +117,7 @@ The system is designed for **24/7 automated operation** and is currently deploye
 
 ## 🧪 Testing
 
-We maintain a high-quality codebase with 18+ comprehensive tests covering persistence, scheduling, and AI logic.
+I maintain a high-quality codebase with 18+ comprehensive tests covering persistence, scheduling, and AI logic.
 
 ```powershell
 python -m unittest discover -s tests -v
